@@ -1,0 +1,39 @@
+<launch>
+    <arg name="load_chassis" default="true"/>
+    <arg name="paused" default="false"/>
+    <arg name="roller_type" default="realistic" doc="simple or realistic"/>
+
+    <param name="robot_description" command="$(find xacro)/xacro $(find rm_description)/urdf/sentry/sentry.urdf.xacro
+         load_chassis:=$(arg load_chassis)
+         use_simulation:=true roller_type:=$(arg roller_type)
+"/>
+
+    <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="paused" value="$(arg paused)"/>
+    </include>
+
+    <!-- push robot_description to factory and spawn robot in gazebo -->
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" clear_params="true"
+          args="-z 0.5 -param robot_description -urdf -model sentry" output="screen"/>
+          
+    <!--do some change to find tf tree-->
+    <rosparam file="$(find sentry_chassis_controller)/config/controllers.yaml" command="load"/>
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+            output="screen" args="
+            controller/sentry_chassis_controller
+            controller/joint_state_controller"/>
+
+    <node name="robot_state_publisher" pkg="robot_state_publisher" 
+    	  type="robot_state_publisher" respawn="false" output="screen">
+    	  <param name="publish_frequency" type="double" value="30.0"/>
+    </node>
+    
+    <node name="joint_state_publisher" pkg="joint_state_publisher" 
+    	  type="joint_state_publisher">
+    	  <param name="use_gui" value="false"/>
+    </node>    
+    <node pkg="tf" type="static_transform_publisher" name="base_link_to_map"
+    	  args="0 0 0 0 0 0 map base_link 100"/>
+    
+</launch>
