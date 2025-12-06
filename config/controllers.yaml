@@ -3,10 +3,12 @@ controller:
   type: sentry_chassis_controller/SentryChassisController
   wheel_track: 0.362
   wheel_base: 0.362
-  wheel_radius: 0.05
+  wheel_radius: 0.055
   max_wheel_vel: 0.05
-  max_pivot_angle: 3.14  # PI/2
+  max_pivot_angle: 1.57  # PI/2
   cmd_timeout: 0.5
+  control_mode: 0  #0:底盘模式；1：全局模式
+  world_frame: odom
 
  joint_state_controller:
   type: joint_state_controller/JointStateController

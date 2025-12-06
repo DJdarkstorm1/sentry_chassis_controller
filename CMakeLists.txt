@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
         tf
         nav_msgs
         dynamic_reconfigure
+        geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -126,6 +127,9 @@ catkin_package(
             pluginlib
             control_toolbox
         dynamic_reconfigure
+        geometry_msgs
+        nav_msgs
+        tf
   DEPENDS #system_lib
 )
 
@@ -143,6 +147,9 @@ include_directories(
 ## Declare a C++ library
  add_library(sentry_chassis_controller
    src/sentry_chassis_controller.cpp
+         src/dynamic_reconfigure.cpp
+         src/odometry_pub.cpp
+         src/odomORbase.cpp
  )
 
 ## Add cmake target dependencies of the library
@@ -207,13 +214,14 @@ include_directories(
  )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+ install(FILES
+         sentry_chassis_controller_plugins.xml
+   # myfile1
+   # myfile2
+   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+ )
 
-install(DIRECTORY cfg
+install(DIRECTORY cfg launch config
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

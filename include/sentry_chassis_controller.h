@@ -12,8 +12,16 @@
 
 #include <geometry_msgs/Twist.h>
 #include <tf/transform_datatypes.h>
-#include <sentry_chassis_controller/SentryChassisControllerConfig.h>
 #include <ros/callback_queue.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
+#include <tf/transform_datatypes.h>
+#include <dynamic_reconfigure/server.h>
+#include <nav_msgs/Odometry.h>
+#include <cmath>
+
+#include <sentry_chassis_controller/SentryChassisControllerConfig.h>
+
 
 namespace sentry_chassis_controller {
 
@@ -42,14 +50,13 @@ namespace sentry_chassis_controller {
         void stopping(const ros::Time &time) override;
 
         double normalizeAngle(double target, double current) ;
+
     private:
-        //****************************************************************************************
+        //动态参数
         typedef dynamic_reconfigure::Server<SentryChassisControllerConfig> DynamicReconfigServer;
         boost::shared_ptr<DynamicReconfigServer> dyn_reconfig_server_;
-
-
         void dynReconfigCallback(SentryChassisControllerConfig &config,uint32_t level);
-//************************************************************************************************
+
 
         void cmdVelCallback(const geometry_msgs::Twist::ConstPtr &msg) ;
         double wheel_track_;
@@ -60,10 +67,21 @@ namespace sentry_chassis_controller {
 
         ros::Subscriber cmd_vel_sub_;
         geometry_msgs::Twist cmd_vel_msg_;
-        bool cmd_vel_received_;
         ros::Time last_cmd_vel_time_;
         double timeout_;
+        bool cmd_vel_received_;
 
+        //里程计
+        ros::Publisher odom_pub_;
+        tf::TransformBroadcaster tf_broadcaster_;
+        nav_msgs::Odometry odom_msg_;
+        ros::Time last_odom_update_time_;
+        //里程计状态
+        double x_, y_, theta_;
+        double vx_, vy_, omega_;
+
+        void updateOdometry(const ros::Time &time , const ros::Duration &period);
+        void publishOdometry(const ros::Time &time);
 
     };
 }// namespace sentry_chassis_controller
