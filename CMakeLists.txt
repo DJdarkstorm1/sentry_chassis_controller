@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
         pluginlib
         control_toolbox
         tf
+        tf2
         nav_msgs
         dynamic_reconfigure
         geometry_msgs
@@ -130,6 +131,7 @@ catkin_package(
         geometry_msgs
         nav_msgs
         tf
+        tf2
   DEPENDS #system_lib
 )
 

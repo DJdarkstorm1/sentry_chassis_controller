@@ -18,6 +18,11 @@ namespace sentry_chassis_controller {
     pid_lb_wheel_.setGains(config.wheel_kp, config.wheel_ki, config.wheel_kd, 0, 0);
     pid_rb_wheel_.setGains(config.wheel_kp, config.wheel_ki, config.wheel_kd, 0, 0);
 
+        // 新增：更新速度模式参数
+        use_global_vel_ = config.use_global_vel;
+        ROS_INFO("速度模式已更新：%s", use_global_vel_ ? "全局坐标系（odom）" : "底盘坐标系（base_link）");
+
+
     ROS_INFO("PID参数已更新: 转向(Kp=%f, Ki=%f, Kd=%f), 轮子(Kp=%f, Ki=%f, Kd=%f)",
              config.pivot_kp, config.pivot_ki, config.pivot_kd,
              config.wheel_kp, config.wheel_ki, config.wheel_kd);

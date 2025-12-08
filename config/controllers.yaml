@@ -7,8 +7,6 @@ controller:
   max_wheel_vel: 0.05
   max_pivot_angle: 1.57  # PI/2
   cmd_timeout: 0.5
-  control_mode: 0  #0:底盘模式；1：全局模式
-  world_frame: odom
 
  joint_state_controller:
   type: joint_state_controller/JointStateController

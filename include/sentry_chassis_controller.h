@@ -9,12 +9,16 @@
 #include <controller_interface/controller.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <control_toolbox/pid.h>
-
+#include <realtime_tools/realtime_buffer.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <tf/transform_datatypes.h>
 #include <ros/callback_queue.h>
 #include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/buffer.h>
 #include <tf/transform_datatypes.h>
 #include <dynamic_reconfigure/server.h>
 #include <nav_msgs/Odometry.h>
@@ -82,6 +86,18 @@ namespace sentry_chassis_controller {
 
         void updateOdometry(const ros::Time &time , const ros::Duration &period);
         void publishOdometry(const ros::Time &time);
+
+        // 速度控制
+
+        // 新增：速度模式参数
+        bool use_global_vel_;
+
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+        // 新增：速度变换函数
+        geometry_msgs::Twist transformVelocityToBaseLink(const geometry_msgs::Twist& vel_in_odom);
+
 
     };
 }// namespace sentry_chassis_controller

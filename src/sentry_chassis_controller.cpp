@@ -8,7 +8,7 @@
 namespace sentry_chassis_controller {
 bool SentryChassisController::init(hardware_interface::EffortJointInterface *effort_joint_interface,
                                    ros::NodeHandle &root_nh, ros::NodeHandle &controller_nh) {
-
+    setlocale(LC_ALL, "");
   front_left_wheel_joint_ =
       effort_joint_interface->getHandle("left_front_wheel_joint");
   front_right_wheel_joint_ =
@@ -52,14 +52,22 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
     cmd_vel_received_ = false;
     last_cmd_vel_time_ =ros::Time::now();
     timeout_ = controller_nh.param("cmd_vel_timeout", 0.01);
+
+    // 新增：读取速度模式参数
+    use_global_vel_ = controller_nh.param("use_global_vel", false);
+    if (use_global_vel_) {
+        ROS_INFO("速度模式：全局坐标系（odom）");
+    } else {
+        ROS_INFO("速度模式：底盘坐标系（base_link）");
+    }
+
+    // 初始化tf2 Buffer和Listener
+    tf_buffer_.reset(new tf2_ros::Buffer());
+    tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
+
+
     cmd_vel_sub_ =root_nh.subscribe<geometry_msgs::Twist>(
         "/cmd_vel",10,&SentryChassisController::cmdVelCallback,this);
-
-    //读取控制模式
-    control_mode_ = controller_nh.param("control_mode",0);//0:底盘；1：全局
-    world_frame_ = controller_nh.param("world_frame",std::string("odom"));
-    //初始化tf_listener
-    tf_listener_ = new tf::TransformListener();
 
     //里程计
     odom_pub_ = root_nh.advertise<nav_msgs::Odometry>("/odom",10);
@@ -103,11 +111,6 @@ void SentryChassisController::stopping(const ros::Time &time) {
     back_left_pivot_joint_.setCommand(0.0);
     back_right_pivot_joint_.setCommand(0.0);
 
-    if (tf_listener_) {
-        delete tf_listener_;
-        tf_listener_ = NULL;
-    }
-
 }
 
 
@@ -140,6 +143,26 @@ void SentryChassisController::update(const ros::Time &time, const ros::Duration 
     if (fabs(vx) < dead_zone) vx = 0.0;
     if (fabs(vy) < dead_zone) vy = 0.0;
     if (fabs(omega) < dead_zone) omega = 0.0;
+
+    // 新增：如果使用全局坐标系速度模式，则进行坐标变换
+    if (use_global_vel_) {
+        geometry_msgs::Twist vel_odom, vel_base;
+        vel_odom.linear.x = vx;
+        vel_odom.linear.y = vy;
+        vel_odom.angular.z = omega;
+
+        vel_base = transformVelocityToBaseLink(vel_odom);
+
+        vx = vel_base.linear.x;
+        vy = vel_base.linear.y;
+        omega = vel_base.angular.z;
+
+        // 再次死区处理
+        if (fabs(vx) < dead_zone) vx = 0.0;
+        if (fabs(vy) < dead_zone) vy = 0.0;
+        if (fabs(omega) < dead_zone) omega = 0.0;
+    }
+
 
     if (fabs(vx) < 0.01 && fabs(vy) < 0.01 && fabs(omega) < 0.01) {
         front_right_wheel_joint_.setCommand(0.0);
