@@ -98,6 +98,15 @@ namespace sentry_chassis_controller {
         // 新增：速度变换函数
         geometry_msgs::Twist transformVelocityToBaseLink(const geometry_msgs::Twist& vel_in_odom);
 
+        // 自锁模式
+        void enterLockMode(const ros::Time& time, const ros::Duration& period);
+        // 新增：自锁参数
+        double lock_angle_;      // 自锁角度（弧度）
+        bool enable_lock_;       // 是否启用自锁
+        // 自锁状态标志
+        bool is_locked_;
+
+
 
     };
 }// namespace sentry_chassis_controller

@@ -51,7 +51,11 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
     //速度控制
     cmd_vel_received_ = false;
     last_cmd_vel_time_ =ros::Time::now();
-    timeout_ = controller_nh.param("cmd_vel_timeout", 0.01);
+    timeout_ = controller_nh.param("cmd_vel_timeout", 0.5);
+    is_locked_ = false;  // 初始不处于自锁状态
+    //自锁角度参数
+    lock_angle_ = controller_nh.param("lock_angle", M_PI / 4.0);
+    enable_lock_ = controller_nh.param("enable_lock", true);
 
     // 新增：读取速度模式参数
     use_global_vel_ = controller_nh.param("use_global_vel", false);
@@ -80,6 +84,50 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
     return true;
 }
 
+// 新增：自锁模式实现
+void SentryChassisController::enterLockMode(const ros::Time& time, const ros::Duration& period) {
+    if (!is_locked_) {
+        ROS_INFO_THROTTLE(1.0, "进入自锁模式，角度: %f rad", lock_angle_);
+        is_locked_ = true;
+    }
+
+    // 获取当前角度
+    double current_theta_lf = front_left_pivot_joint_.getPosition();
+    double current_theta_rf = front_right_pivot_joint_.getPosition();
+    double current_theta_lb = back_left_pivot_joint_.getPosition();
+    double current_theta_rb = back_right_pivot_joint_.getPosition();
+
+    // 设置自锁角度：形成X型锁定
+    double target_theta_lf = lock_angle_;      // 左前：正角度
+    double target_theta_rf = -lock_angle_;     // 右前：负角度
+    double target_theta_lb = -lock_angle_;     // 左后：负角度
+    double target_theta_rb = lock_angle_;      // 右后：正角度
+
+    // 归一化角度
+    target_theta_lf = normalizeAngle(target_theta_lf, current_theta_lf);
+    target_theta_rf = normalizeAngle(target_theta_rf, current_theta_rf);
+    target_theta_lb = normalizeAngle(target_theta_lb, current_theta_lb);
+    target_theta_rb = normalizeAngle(target_theta_rb, current_theta_rb);
+
+    // 停止所有轮子
+    front_left_wheel_joint_.setCommand(0.0);
+    front_right_wheel_joint_.setCommand(0.0);
+    back_left_wheel_joint_.setCommand(0.0);
+    back_right_wheel_joint_.setCommand(0.0);
+
+    // 设置转向角度到自锁位置（使用PID控制平滑过渡）
+    front_left_pivot_joint_.setCommand(
+        pid_lf_.computeCommand(target_theta_lf - current_theta_lf, period));
+    front_right_pivot_joint_.setCommand(
+        pid_rf_.computeCommand(target_theta_rf - current_theta_rf, period));
+    back_left_pivot_joint_.setCommand(
+        pid_lb_.computeCommand(target_theta_lb - current_theta_lb, period));
+    back_right_pivot_joint_.setCommand(
+        pid_rb_.computeCommand(target_theta_rb - current_theta_rb, period));
+}
+
+
+
 void SentryChassisController::starting(const ros::Time &time) {
     pid_lf_.reset();
     pid_rf_.reset();
@@ -98,6 +146,7 @@ void SentryChassisController::starting(const ros::Time &time) {
     x_ = y_ = theta_ = 0.0;
     vx_ = vy_ = omega_ = 0.0;
     last_odom_update_time_ = time;
+    is_locked_ = false;  // 启动时不处于自锁状态
 }
 
 void SentryChassisController::stopping(const ros::Time &time) {
@@ -111,6 +160,8 @@ void SentryChassisController::stopping(const ros::Time &time) {
     back_left_pivot_joint_.setCommand(0.0);
     back_right_pivot_joint_.setCommand(0.0);
 
+    is_locked_ = false;
+
 }
 
 
@@ -118,6 +169,13 @@ void SentryChassisController::cmdVelCallback(const geometry_msgs::Twist::ConstPt
     cmd_vel_msg_ = *msg;
     cmd_vel_received_ = true;
     last_cmd_vel_time_ = ros::Time::now();
+
+    // 收到新命令时解除自锁状态
+    if (is_locked_) {
+        ROS_INFO("收到新的速度命令，自动解除自锁状态");
+        is_locked_ = false;
+    }
+
 
    /* ROS_DEBUG_STREAM_THROTTLE(1.0,"cmd_vel:  vx: "<<cmd_vel_msg_.linear.x
                                     <<",  vy: "<<cmd_vel_msg_.linear.y
@@ -127,11 +185,82 @@ void SentryChassisController::cmdVelCallback(const geometry_msgs::Twist::ConstPt
 
 void SentryChassisController::update(const ros::Time &time, const ros::Duration &period) {
 
-    if ((time-last_cmd_vel_time_).toSec()>timeout_) {
+  // 检查是否超时
+    if ((time - last_cmd_vel_time_).toSec() > timeout_) {
         cmd_vel_received_ = false;
         cmd_vel_msg_.linear.x = 0;
         cmd_vel_msg_.linear.y = 0;
         cmd_vel_msg_.angular.z = 0;
+
+        // 如果启用了自锁功能，进入自锁模式
+        if (enable_lock_) {
+            // 进入自锁模式
+            if (!is_locked_) {
+                ROS_DEBUG_THROTTLE(1.0, "进入自锁模式");
+                is_locked_ = true;
+            }
+
+            // 获取当前角度
+            double current_theta_lf = front_left_pivot_joint_.getPosition();
+            double current_theta_rf = front_right_pivot_joint_.getPosition();
+            double current_theta_lb = back_left_pivot_joint_.getPosition();
+            double current_theta_rb = back_right_pivot_joint_.getPosition();
+
+            // 设置自锁角度：形成X型锁定
+            double target_theta_lf = lock_angle_;
+            double target_theta_rf = -lock_angle_;
+            double target_theta_lb = -lock_angle_;
+            double target_theta_rb = lock_angle_;
+
+            // 归一化角度
+            target_theta_lf = normalizeAngle(target_theta_lf, current_theta_lf);
+            target_theta_rf = normalizeAngle(target_theta_rf, current_theta_rf);
+            target_theta_lb = normalizeAngle(target_theta_lb, current_theta_lb);
+            target_theta_rb = normalizeAngle(target_theta_rb, current_theta_rb);
+
+            // 停止所有轮子
+            front_left_wheel_joint_.setCommand(0.0);
+            front_right_wheel_joint_.setCommand(0.0);
+            back_left_wheel_joint_.setCommand(0.0);
+            back_right_wheel_joint_.setCommand(0.0);
+
+            // 设置转向角度到自锁位置
+            front_left_pivot_joint_.setCommand(
+                pid_lf_.computeCommand(target_theta_lf - current_theta_lf, period));
+            front_right_pivot_joint_.setCommand(
+                pid_rf_.computeCommand(target_theta_rf - current_theta_rf, period));
+            back_left_pivot_joint_.setCommand(
+                pid_lb_.computeCommand(target_theta_lb - current_theta_lb, period));
+            back_right_pivot_joint_.setCommand(
+                pid_rb_.computeCommand(target_theta_rb - current_theta_rb, period));
+        } else {
+            // 如果不启用自锁，只是停止轮子（保持原有行为）
+            front_right_wheel_joint_.setCommand(0.0);
+            front_left_wheel_joint_.setCommand(0.0);
+            back_left_wheel_joint_.setCommand(0.0);
+            back_right_wheel_joint_.setCommand(0.0);
+
+            // 转向电机可以保持当前位置，不需要额外设置
+            front_left_pivot_joint_.setCommand(0.0);
+            front_right_pivot_joint_.setCommand(0.0);
+            back_left_pivot_joint_.setCommand(0.0);
+            back_right_pivot_joint_.setCommand(0.0);
+
+            // 退出自锁状态（如果之前处于自锁状态）
+            if (is_locked_) {
+                is_locked_ = false;
+            }
+        }
+
+        updateOdometry(time, period);
+        publishOdometry(time);
+        return;
+    } else {
+        // 如果收到新命令，退出自锁状态
+        if (is_locked_) {
+            is_locked_ = false;
+            ROS_DEBUG_THROTTLE(1.0, "退出自锁模式");
+        }
     }
 
     double vx = cmd_vel_msg_.linear.x;
