@@ -30,7 +30,5 @@
     </node>
 
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find sentry_chassis_controller)/config/config.rviz"/>
-    <node pkg="tf" type="static_transform_publisher" name="map_to_odom"
-            args="0 0 0 0 0 0 map odom 100"/>
 
 </launch>

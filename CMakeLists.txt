@@ -152,6 +152,7 @@ include_directories(
          src/dynamic_reconfigure.cpp
          src/odometry_pub.cpp
          src/odomORbase.cpp
+         include/sentry_teleop_keyboard.h
  )
 
 ## Add cmake target dependencies of the library
@@ -164,7 +165,10 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/sentry_chassis_controller_node.cpp)
-
+add_executable(sentry_teleop_keyboard src/sentry_teleop_keyboard.cpp)
+target_link_libraries(sentry_teleop_keyboard
+        ${catkin_LIBRARIES}
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -196,9 +200,9 @@ include_directories(
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_node
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+ install(TARGETS sentry_teleop_keyboard
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
