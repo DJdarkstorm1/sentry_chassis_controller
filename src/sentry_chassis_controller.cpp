@@ -38,10 +38,10 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
   pid_rb_.initPid(1.0, 0.0, 0.0, 0.0, 0.0);
 
   // PID for wheel velocity control
-  pid_lf_wheel_.initPid(3.0, 0.1, 0.0, 0.0, 0.0);
-  pid_rf_wheel_.initPid(3.0, 0.1, 0.0, 0.0, 0.0);
-  pid_lb_wheel_.initPid(3.0, 0.1, 0.0, 0.0, 0.0);
-  pid_rb_wheel_.initPid(3.0, 0.1, 0.0, 0.0, 0.0);
+  pid_lf_wheel_.initPid(100.0, 0.0, 1.0, 0.0, 0.0);
+  pid_rf_wheel_.initPid(100.0, 0.0, 1.0, 0.0, 0.0);
+  pid_lb_wheel_.initPid(100.0, 0.0, 1.0, 0.0, 0.0);
+  pid_rb_wheel_.initPid(100.0, 0.0, 1.0, 0.0, 0.0);
 
     //动态参数
     dyn_reconfig_server_.reset(new DynamicReconfigServer(controller_nh));
@@ -57,7 +57,7 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
     lock_angle_ = controller_nh.param("lock_angle", M_PI / 4.0);
     enable_lock_ = controller_nh.param("enable_lock", true);
 
-    // 新增：读取速度模式参数
+    //读取速度模式参数
     use_global_vel_ = controller_nh.param("use_global_vel", false);
     if (use_global_vel_) {
         ROS_INFO("速度模式：全局坐标系（odom）");
@@ -81,10 +81,18 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
 
     last_odom_update_time_ = ros::Time::now();
 
+    //加速度
+    last_vx_ = 0.0;
+    last_vy_ = 0.0;
+    last_omega_ = 0.0;
+    // 读取加速度限制参数
+    linear_acceleration_limit_ = controller_nh.param("linear_acceleration_limit", 2.0);
+    angular_acceleration_limit_ = controller_nh.param("angular_acceleration_limit", 1.0);
+
     return true;
 }
 
-// 新增：自锁模式实现
+//自锁模式实现
 void SentryChassisController::enterLockMode(const ros::Time& time, const ros::Duration& period) {
     if (!is_locked_) {
         ROS_INFO_THROTTLE(1.0, "进入自锁模式，角度: %f rad", lock_angle_);
@@ -177,10 +185,10 @@ void SentryChassisController::cmdVelCallback(const geometry_msgs::Twist::ConstPt
     }
 
 
-   /* ROS_DEBUG_STREAM_THROTTLE(1.0,"cmd_vel:  vx: "<<cmd_vel_msg_.linear.x
+    ROS_DEBUG_STREAM_THROTTLE(1.0,"cmd_vel:  vx: "<<cmd_vel_msg_.linear.x
                                     <<",  vy: "<<cmd_vel_msg_.linear.y
                                     <<",  omega: "<<cmd_vel_msg_.angular.z);
-*/
+
 }
 
 void SentryChassisController::update(const ros::Time &time, const ros::Duration &period) {
@@ -292,6 +300,8 @@ void SentryChassisController::update(const ros::Time &time, const ros::Duration 
         if (fabs(omega) < dead_zone) omega = 0.0;
     }
 
+    // 应用加速度限制
+    applyAccelerationLimit(vx, vy, omega, period);
 
     if (fabs(vx) < 0.01 && fabs(vy) < 0.01 && fabs(omega) < 0.01) {
         front_right_wheel_joint_.setCommand(0.0);

@@ -7,7 +7,9 @@ controller:
   max_wheel_vel: 0.05
   max_pivot_angle: 1.57  # PI/2
   cmd_vel_timeout: 0.5
- 
+  linear_acceleration_limit: 10.0    # 线加速度限制，默认2.0
+  angular_acceleration_limit: 5.0   # 角加速度限制，默认1.0
+  
  joint_state_controller:
   type: joint_state_controller/JointStateController
   publish_rate: 5

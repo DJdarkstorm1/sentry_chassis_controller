@@ -153,6 +153,7 @@ include_directories(
          src/odometry_pub.cpp
          src/odomORbase.cpp
          include/sentry_teleop_keyboard.h
+         src/acceleration.cpp
  )
 
 ## Add cmake target dependencies of the library

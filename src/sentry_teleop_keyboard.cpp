@@ -43,6 +43,7 @@ SentryTeleopKeyboard::SentryTeleopKeyboard()
     std::cout << "w/s: 前进/后退\n";
     std::cout << "a/d: 左转/右转\n";
     std::cout << "q/e: 左平移/右平移\n";
+    std::cout << "r/t: 左旋转/右旋转\n";
     std::cout << "f: 切换全局模式 (" << (use_global_vel_ ? "全局" : "底盘") << ")\n";
     std::cout << "空格: 停止\n";
     std::cout << "ESC: 退出\n";
@@ -178,6 +179,18 @@ void SentryTeleopKeyboard::run() {
             case 'E':
                 publishVelocity(0, 0, -angular_vel_);
                 std::cout << "右转\n";
+                break;
+
+            case 'r':
+            case 'R':
+                publishVelocity(0, 0, angular_vel_*10);
+                std::cout << "左转小陀螺\n";
+                break;
+
+            case 't':
+            case 'T':
+                publishVelocity(0, 0, -angular_vel_*10);
+                std::cout << "右转小陀螺\n";
                 break;
 
             default:

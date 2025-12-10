@@ -89,22 +89,33 @@ namespace sentry_chassis_controller {
 
         // 速度控制
 
-        // 新增：速度模式参数
+        //速度模式参数
         bool use_global_vel_;
 
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-        // 新增：速度变换函数
+        //速度变换函数
         geometry_msgs::Twist transformVelocityToBaseLink(const geometry_msgs::Twist& vel_in_odom);
 
         // 自锁模式
         void enterLockMode(const ros::Time& time, const ros::Duration& period);
-        // 新增：自锁参数
+        // 自锁参数
         double lock_angle_;      // 自锁角度（弧度）
         bool enable_lock_;       // 是否启用自锁
         // 自锁状态标志
         bool is_locked_;
+
+        //加速度限制
+        // 加速度限制相关
+        double linear_acceleration_limit_;   // 线加速度限制 (m/s²)
+        double angular_acceleration_limit_;  // 角加速度限制 (rad/s²)
+        double last_vx_;                     // 上一时刻的X方向速度
+        double last_vy_;                     // 上一时刻的Y方向速度
+        double last_omega_;                  // 上一时刻的角速度
+
+        // 加速度限制函数
+        void applyAccelerationLimit(double &vx, double &vy, double &omega, const ros::Duration &period);
 
 
 
