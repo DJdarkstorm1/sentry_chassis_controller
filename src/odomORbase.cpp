@@ -4,7 +4,7 @@
 #include "sentry_chassis_controller.h"
 
 namespace sentry_chassis_controller {
-    // 新增：速度变换函数
+    //速度变换函数
     geometry_msgs::Twist SentryChassisController::transformVelocityToBaseLink(
         const geometry_msgs::Twist& vel_in_odom) {
         geometry_msgs::Twist vel_in_base = vel_in_odom;
@@ -24,7 +24,6 @@ namespace sentry_chassis_controller {
             vel_in_base.linear = vel_out.vector;
 
             // 角速度在平面运动下不变（假设绕z轴旋转）
-            // 如果需要变换角速度，可以类似处理
 
             ROS_DEBUG_THROTTLE(1.0, "速度已从odom变换到底盘坐标系");
 

@@ -12,7 +12,6 @@ void SentryChassisController::updateOdometry(const ros::Time &time, const ros::D
         return;
     }
 
-    // 方法1：基于轮子实际速度的正运动学计算（推荐）
     // 获取轮子实际角速度（rad/s）
     double w1 = front_left_wheel_joint_.getVelocity();
     double w2 = front_right_wheel_joint_.getVelocity();
@@ -45,19 +44,14 @@ void SentryChassisController::updateOdometry(const ros::Time &time, const ros::D
     double v4x = v4 * cos(theta4);
     double v4y = v4 * sin(theta4);
 
-    // 方法A：简单平均法（适用于四轮速度相近的情况）
     // 机器人中心的速度近似为四个轮子速度的平均值
     vx_ = (v1x + v2x + v3x + v4x) / 4.0;
     vy_ = (v1y + v2y + v3y + v4y) / 4.0;
 
-    // 方法B：使用运动学模型计算（更精确）
-    // 对于四轮独立转向的机器人，可以使用逆运动学模型的逆运算
-    // 这里使用简化的方法，假设机器人为刚体运动
-
     // 计算旋转角速度
     // 使用四个轮子的位置和速度来估计角速度
-    double half_wheel_base = wheel_base_ / 2.0;
-    double half_wheel_track = wheel_track_ / 2.0;
+    double half_wheel_base = wheel_base_ / 2.0;//前后X方向
+    double half_wheel_track = wheel_track_ / 2.0;//左右Y方向
 
     // 计算每个轮子对旋转的贡献
     double omega1 = (v1x * (-half_wheel_track) + v1y * half_wheel_base) /
@@ -111,7 +105,7 @@ void SentryChassisController::publishOdometry(const ros::Time &time) {
     odom_msg_.pose.pose.orientation.z = q.z();
     odom_msg_.pose.pose.orientation.w = q.w();
 
-    // 设置协方差（这里使用简单估计）
+    // 设置协方差简单估计
     // 位置协方差
     for (int i = 0; i < 36; i++) {
         odom_msg_.pose.covariance[i] = 0.0;

@@ -51,7 +51,10 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
     //速度控制
     cmd_vel_received_ = false;
     last_cmd_vel_time_ =ros::Time::now();
-    timeout_ = controller_nh.param("cmd_vel_timeout", 0.5);
+    timeout_ = controller_nh.param("cmd_vel_timeout", 0.5);//超时停车
+    cmd_vel_sub_ =root_nh.subscribe<geometry_msgs::Twist>(
+        "/cmd_vel",10,&SentryChassisController::cmdVelCallback,this);
+
     is_locked_ = false;  // 初始不处于自锁状态
     //自锁角度参数
     lock_angle_ = controller_nh.param("lock_angle", M_PI / 4.0);
@@ -65,20 +68,14 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
         ROS_INFO("速度模式：底盘坐标系（base_link）");
     }
 
-    // 初始化tf2 Buffer和Listener
+    // 全局/底盘速度模式：初始化tf2 Buffer和Listener
     tf_buffer_.reset(new tf2_ros::Buffer());
     tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
 
-
-    cmd_vel_sub_ =root_nh.subscribe<geometry_msgs::Twist>(
-        "/cmd_vel",10,&SentryChassisController::cmdVelCallback,this);
-
     //里程计
     odom_pub_ = root_nh.advertise<nav_msgs::Odometry>("/odom",10);
-
     odom_msg_.header.frame_id = "odom";
     odom_msg_.child_frame_id = "base_link";
-
     last_odom_update_time_ = ros::Time::now();
 
     //加速度
@@ -91,50 +88,6 @@ bool SentryChassisController::init(hardware_interface::EffortJointInterface *eff
 
     return true;
 }
-
-//自锁模式实现
-void SentryChassisController::enterLockMode(const ros::Time& time, const ros::Duration& period) {
-    if (!is_locked_) {
-        ROS_INFO_THROTTLE(1.0, "进入自锁模式，角度: %f rad", lock_angle_);
-        is_locked_ = true;
-    }
-
-    // 获取当前角度
-    double current_theta_lf = front_left_pivot_joint_.getPosition();
-    double current_theta_rf = front_right_pivot_joint_.getPosition();
-    double current_theta_lb = back_left_pivot_joint_.getPosition();
-    double current_theta_rb = back_right_pivot_joint_.getPosition();
-
-    // 设置自锁角度：形成X型锁定
-    double target_theta_lf = lock_angle_;      // 左前：正角度
-    double target_theta_rf = -lock_angle_;     // 右前：负角度
-    double target_theta_lb = -lock_angle_;     // 左后：负角度
-    double target_theta_rb = lock_angle_;      // 右后：正角度
-
-    // 归一化角度
-    target_theta_lf = normalizeAngle(target_theta_lf, current_theta_lf);
-    target_theta_rf = normalizeAngle(target_theta_rf, current_theta_rf);
-    target_theta_lb = normalizeAngle(target_theta_lb, current_theta_lb);
-    target_theta_rb = normalizeAngle(target_theta_rb, current_theta_rb);
-
-    // 停止所有轮子
-    front_left_wheel_joint_.setCommand(0.0);
-    front_right_wheel_joint_.setCommand(0.0);
-    back_left_wheel_joint_.setCommand(0.0);
-    back_right_wheel_joint_.setCommand(0.0);
-
-    // 设置转向角度到自锁位置（使用PID控制平滑过渡）
-    front_left_pivot_joint_.setCommand(
-        pid_lf_.computeCommand(target_theta_lf - current_theta_lf, period));
-    front_right_pivot_joint_.setCommand(
-        pid_rf_.computeCommand(target_theta_rf - current_theta_rf, period));
-    back_left_pivot_joint_.setCommand(
-        pid_lb_.computeCommand(target_theta_lb - current_theta_lb, period));
-    back_right_pivot_joint_.setCommand(
-        pid_rb_.computeCommand(target_theta_rb - current_theta_rb, period));
-}
-
-
 
 void SentryChassisController::starting(const ros::Time &time) {
     pid_lf_.reset();
@@ -281,7 +234,7 @@ void SentryChassisController::update(const ros::Time &time, const ros::Duration 
     if (fabs(vy) < dead_zone) vy = 0.0;
     if (fabs(omega) < dead_zone) omega = 0.0;
 
-    // 新增：如果使用全局坐标系速度模式，则进行坐标变换
+    //如果使用全局坐标系速度模式，则进行坐标变换
     if (use_global_vel_) {
         geometry_msgs::Twist vel_odom, vel_base;
         vel_odom.linear.x = vx;
@@ -327,8 +280,6 @@ void SentryChassisController::update(const ros::Time &time, const ros::Duration 
     bool is_straight_line = (fabs(vy) < 0.01 && fabs(omega) < 0.01); // 纯前后直线运动
     bool is_sideways = (fabs(vx) < 0.01 && fabs(omega) < 0.01); // 纯左右平移
     bool is_rotation = (fabs(vx) < 0.01 && fabs(vy) < 0.01); // 纯旋转
-
-
 
     // 角度和速度初始化
   double theta_lf = 0.0, v_lf = 0.0;

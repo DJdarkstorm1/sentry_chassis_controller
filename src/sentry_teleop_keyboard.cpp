@@ -24,7 +24,7 @@ SentryTeleopKeyboard::SentryTeleopKeyboard()
     // 初始化发布器
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
 
-    // 初始化动态参数服务客户端
+    // 初始化动态参数服务客户端便于在键盘操作节点切换速度模式
     reconfigure_client_ = nh_.serviceClient<dynamic_reconfigure::Reconfigure>(
         "/controller/sentry_chassis_controller/set_parameters");
 
